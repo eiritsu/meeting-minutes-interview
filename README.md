@@ -1,6 +1,6 @@
 # meeting-minutes-interview
 
-> A [Hermes Agent](https://hermes-agent.nousresearch.com/docs) skill that turns interview recordings and meeting audio into structured, bilingual minutes — transcription, speaker diarization, and LLM refinement in one pipeline.
+> Turns interview recordings and meeting audio into structured, bilingual minutes — transcription, speaker diarization, and LLM refinement in one pipeline.
 
 English | [简体中文](README.zh-CN.md)
 

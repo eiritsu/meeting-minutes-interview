@@ -1,6 +1,6 @@
 # meeting-minutes-interview
 
-> 一个 [Hermes Agent](https://hermes-agent.nousresearch.com/docs) skill，把面试录音和会议音频一键转成结构化、双语会议纪要 —— 转录、说话人识别、LLM 修正，全流程一条龙。
+> 把面试录音和会议音频一键转成结构化、双语会议纪要 —— 转录、说话人识别、LLM 修正，全流程一条龙。
 
 [English](README.md) | 简体中文
 
