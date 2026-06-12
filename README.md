@@ -40,6 +40,7 @@ English | [简体中文](README.zh-CN.md)
 - [uv](https://github.com/astral-sh/uv) (Python package manager)
 - `ffmpeg` — only needed for video → audio extraction
 - SiliconFlow API key — [free signup](https://siliconflow.cn), key placed in `~/.hermes/.env`
+- (Optional) A self-hosted or alternative **OpenAI-compatible ASR endpoint** — see [🔌 Configuration](#-configuration) below
 
 ---
 
@@ -50,7 +51,7 @@ English | [简体中文](README.zh-CN.md)
 Add to `~/.hermes/.env`:
 
 ```
-SILICONFLOW_API_KEY=sk-...
+SILICONFLOW_API_KEY=sk-xxx...your-key
 ```
 
 ### 2. Run the pipeline
@@ -77,6 +78,45 @@ Copy the generated prompts in order into your LLM chat:
 3. `3_generate_minutes.md` — generate the final bilingual Markdown minutes
 
 > The LLM steps are manual (copy-paste) to keep API costs transparent and let you steer quality.
+
+---
+
+## 🔌 Configuration
+
+The skill ships configured for SiliconFlow by default. Both the **API key** (environment variable) and the **API URL** (hardcoded, change in source) are easy to override.
+
+### 1. API Key — via environment variable
+
+The key is read from `~/.hermes/.env` in your `SILICONFLOW_API_KEY` line. To use a different key (e.g. a self-hosted gateway with its own key), edit that line — no code change required:
+
+```bash
+# Edit ~/.hermes/.env
+SILICONFLOW_API_KEY=sk-xxx...your-key
+```
+
+> If you don't use Hermes Agent, point the key-loading code line directly in `scripts/transcribe_single.py:16` and `scripts/meeting_transcribe_batch.py:43` (the file-search code) to wherever you store your secret.
+
+### 2. API URL — edit two lines in source
+
+The ASR endpoint is **hardcoded** in two places. To point at a different host (e.g. a self-hosted `faster-whisper` server, or a regional SiliconFlow mirror):
+
+| File | Line | Default | Change to |
+|---|---|---|---|
+| `scripts/transcribe_single.py`       | **L29** | `https://api.siliconflow.cn/v1/audio/transcriptions` | your endpoint |
+| `scripts/meeting_transcribe_batch.py`| **L110** | `https://api.siliconflow.cn/v1/audio/transcriptions` | your endpoint |
+
+Any **OpenAI-compatible** `/v1/audio/transcriptions` endpoint works (the request/response format follows the OpenAI Whisper API spec).
+
+Example — switch to a local `faster-whisper` server:
+
+```python
+# scripts/transcribe_single.py, around L29
+url = "http://localhost:8000/v1/audio/transcriptions"
+```
+
+Then run the pipeline as usual. The auth header (`Authorization: Bearer <key>`) is sent automatically; your local server can choose to ignore it or use it for its own auth.
+
+> 🤝 **Contributions welcome** — if you'd like `SILICONFLOW_BASE_URL` as a proper environment variable, please open a PR. The two-line change is trivial.
 
 ---
 

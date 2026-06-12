@@ -40,6 +40,7 @@
 - [uv](https://github.com/astral-sh/uv)（Python 包管理）
 - `ffmpeg` —— 仅视频抽音轨时需要
 - SiliconFlow API Key —— [免费注册](https://siliconflow.cn)，Key 放在 `~/.hermes/.env`
+- （可选）自建或其他 **OpenAI 兼容的 ASR endpoint** —— 见下方 [🔌 配置说明](#-配置说明)
 
 ---
 
@@ -50,7 +51,7 @@
 在 `~/.hermes/.env` 中添加：
 
 ```
-SILICONFLOW_API_KEY=sk-...
+SILICONFLOW_API_KEY=sk-xxx...your-key
 ```
 
 ### 2. 一键运行
@@ -77,6 +78,47 @@ uv run --with av --with requests python3 scripts/run_pipeline.py \
 3. `3_generate_minutes.md` —— 生成最终双语 Markdown 纪要
 
 > 为什么不自动调 LLM？节省外部 API 成本，且 LLM 的上下文能力强、对中英混合最友好。
+
+---
+
+## 🔌 配置说明
+
+默认按 SiliconFlow 配置。**API Key**（环境变量）和 **API URL**（代码硬编码，改源码）都容易覆盖。
+
+### 1. API Key —— 通过环境变量
+
+Key 从 `~/.hermes/.env` 的 `SILICONFLOW_API_KEY` 行读取。要换成其他 Key（比如自建网关自己的 Key），改这一行即可，无需动代码：
+
+```bash
+# 编辑 ~/.hermes/.env
+SILICONFLOW_API_KEY=sk-xxx...your-key
+```
+
+> 如果你不用 Hermes Agent，把 key 加载代码（`scripts/transcribe_single.py:16` 和 `scripts/meeting_transcribe_batch.py:43` 里的环境变量读取）改成你自己存放密钥的位置即可。
+
+### 2. API URL —— 改源码里两行
+
+ASR endpoint 在两处**硬编码**。要换地址（比如自建 `faster-whisper` 服务器，或 SiliconFlow 区域镜像）：
+
+| 文件 | 行号 | 默认值 | 改成 |
+|---|---|---|---|
+| `scripts/transcribe_single.py`        | **L29**  | `https://api.siliconflow.cn/v1/audio/transcriptions` | 你的 endpoint |
+| `scripts/meeting_transcribe_batch.py` | **L110** | `https://api.siliconflow.cn/v1/audio/transcriptions` | 你的 endpoint |
+
+任何 **OpenAI 兼容**的 `/v1/audio/transcriptions` endpoint 都能用（请求/响应遵循 OpenAI Whisper API 规范）。
+
+示例 —— 切到本地 `faster-whisper` 服务器：
+
+```python
+# scripts/transcribe_single.py, 大约 L29
+url = "http://localhost:8000/v1/audio/transcriptions"
+```
+
+照常跑 pipeline 即可。`Authorization: Bearer sk-xxx...your-key` 请求头会自动带上，本地服务器可忽略或自用。
+
+> 🤝 **欢迎贡献** —— 如果你希望把 `SILICONFLOW_BASE_URL` 做成正式环境变量，欢迎 PR。改动只需两行。
+
+---
 
 ---
 
