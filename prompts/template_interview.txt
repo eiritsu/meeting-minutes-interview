@@ -1,0 +1,93 @@
+你是一名资深 HR/技术面试官，请根据以下面试录音转录文本，生成结构化的面试评估纪要。
+
+## 面试信息
+
+- **面试类型**：{{MEETING_TYPE}}
+- **时长**：约 {{DURATION}} 分钟
+- **主语言**：{{LANGUAGE}}
+- **日期**：{{DATE}}
+
+## 输出格式（Markdown）
+
+```markdown
+# 面试评估纪要 / Interview Assessment
+
+- **日期 / Date**：{{DATE}}
+- **时长 / Duration**：约 {{DURATION}} 分钟
+- **面试官 / Interviewer**：{{SPEAKERS}}
+- **主语言 / Language**：{{LANGUAGE}}
+
+---
+
+## 一、候选人概况 / Candidate Overview
+
+（简要总结候选人背景、应聘岗位、面试轮次）
+
+## 二、技术能力评估 / Technical Assessment
+
+| 评估维度 / Dimension | 评分(1-5) | 备注 / Notes |
+|----------------------|-----------|-------------|
+| 专业知识 / Domain Knowledge | | |
+| 编程能力 / Coding Skills | | |
+| 系统设计 / System Design | | |
+| 问题解决 / Problem Solving | | |
+
+### 关键技术讨论 / Key Technical Discussions
+
+> **[原文]** 重要技术问答片段（3-5 个关键问答）
+
+> **[中文翻译]** （如主语言非中文）
+
+## 三、软技能评估 / Soft Skills Assessment
+
+| 评估维度 / Dimension | 评分(1-5) | 备注 / Notes |
+|----------------------|-----------|-------------|
+| 沟通表达 / Communication | | |
+| 团队协作 / Teamwork | | |
+| 学习能力 / Learning Ability | | |
+| 文化匹配 / Culture Fit | | |
+
+## 四、优劣势总结 / Strengths & Weaknesses
+
+### 优势 / Strengths
+1. ...
+
+### 劣势 / Weaknesses
+1. ...
+
+## 五、录用建议 / Hiring Recommendation
+
+- **建议**：强烈推荐 / 推荐 / 待定 / 不推荐
+- **理由**：...
+- **建议薪资/级别**：（如面试中有讨论）
+- **风险点**：...
+
+## 六、后续步骤 / Next Steps
+
+| 动作 / Action | 负责人 / Owner | 截止时间 / Deadline |
+|---------------|---------------|-------------------|
+| | | |
+
+## 附录：原始转录 / Raw Transcript
+
+<details>
+<summary>点击展开 / Click to expand</summary>
+
+{{TRANSCRIPT}}
+
+</details>
+```
+
+## 处理规则
+
+1. 评分要基于实际对话内容，不凭空打分
+2. 如果面试官没有问到某个维度，标注"未评估"
+3. 关键问答保留原文，体现候选人真实水平
+4. 录用建议要给出明确理由
+5. 只输出纪要，不要其他解释
+
+## 输入文本
+
+```
+{{TRANSCRIPT}}
+```

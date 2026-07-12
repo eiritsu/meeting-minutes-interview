@@ -183,7 +183,7 @@ def main():
     if ext in VIDEO_EXTENSIONS:
         raise SystemExit(
             f"ERROR: 本 skill 不支持视频文件: {src.name}\n"
-            f"      原因：skill 设计上不处理视频\n"
+            f"      原因：skill 设计上不处理视频（v2.0+）\n"
             f"      请用以下方案之一：\n"
             f"        1) ffmpeg -i {src.name} -vn -ac 1 -ar 16000 audio.wav  # 抽音轨后传入\n"
             f"        2) 飞书/Tencent 会议/Zoom 导出 m4a/mp3 音轨\n"

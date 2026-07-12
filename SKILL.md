@@ -1,9 +1,10 @@
 ---
 name: meeting-minutes-interview
-description: 从面试录音/会议音频生成结构化会议纪要，含音频转录、说话人识别、LLM 修正、中英日韩多语言支持、中英混合双语输出。仅支持音频，视频需先抽音轨。**SiliconFlow SenseVoiceSmall 免费调用**。
-version: 1.0.0
-author: Y
-tags: [meeting, minutes, audio-transcription, speaker-diarization, multilingual, ocr, free]
+description: 从面试录音/会议音频生成结构化会议纪要，含音频归一化、VAD切片、ASR转录、说话人识别、LLM自动摘要、会议历史存储。多语言支持，双语输出。SiliconFlow SenseVoiceSmall 免费调用，LLM 摘要用当前会话模型。
+version: 2.0.1
+author: y
+tags: [meeting, minutes, audio-transcription, speaker-diarization, multilingual, ocr, free, vad, auto-summary]
+related_skills: []
 triggers:
   - 会议纪要
   - 面试纪要
@@ -14,145 +15,142 @@ triggers:
   - 中英混合
 ---
 
-# 会议纪要生成 v1.0
+# 会议纪要生成 v2.0
 
-> 💰 **费用提示**：转录阶段使用 SiliconFlow `FunAudioLLM/SenseVoiceSmall`，**完全免费**，无时长/次数限制。只需一个 `SILICONFLOW_API_KEY` 即可。
+> 💰 **费用提示**：转录使用 SiliconFlow `FunAudioLLM/SenseVoiceSmall`，**完全免费**。摘要使用当前会话的 LLM 模型，**零额外成本**。
 
-支持**长会议**、**说话人识别**、**中英日韩多语言**、**LLM 修正**的完整会议纪要生成流程。
+## v2.0 新特性
 
-## ⚠️ Step 0: 前置检查
-
-需要**至少一项**素材才能开始：
-
-- 🎙️ **音频文件**（仅音频，不支持视频）
-  - 支持：`.mp3` `.m4a` `.wav` `.flac` `.ogg` `.opus` `.aac` `.amr` 等
-  - **不支持**：`.mp4` `.mov` `.avi` `.mkv` `.flv` `.webm` 等视频格式
-  - 视频需先用 ffmpeg 抽音轨：`ffmpeg -i input.mp4 -vn -ac 1 -ar 16000 audio.wav`
-- 📄 **会议平台导出的AI纪要**（`.txt`/`.rtf`/`.docx`/`.md`）
-- 📝 **会议文字记录**
-- 📋 **候选人简历**（面试场景，PDF/docx）
-
-**没有素材时先提醒用户**，不要直接生成。
-
-> 💡 为什么不支持视频：skill 设计上专注会议场景音轨处理，不涉及视频流的转码/抽帧/字幕提取，避免依赖复杂。如需视频支持请使用专业工具（如 ffmpeg 抽音轨后传入）。
+- 🎯 **VAD 静音检测切片**：在自然停顿处分割，不再固定时间切，转录质量更高
+- 🔊 **EBU R128 响度归一化**：统一音频响度，减少 ASR 误识别
+- 🤖 **LLM 自动摘要**：Agent 读取转录后自动用当前模型生成纪要，无需手动粘贴 Prompt
+- 📝 **会议模板**：面试/周会/产品评审/通用 四种专用模板
+- 💾 **SQLite 会议历史**：自动保存转录和纪要，支持搜索和统计
 
 ---
 
-## 🚀 一键流程（v1.0）
+## ⚠️ Step 0: 前置检查
 
-### 场景 A：拿到的就是音频文件
+需要**音频文件**：
+
+- 支持：`.mp3` `.m4a` `.wav` `.flac` `.ogg` `.opus` `.aac` `.amr`
+- 视频：`.mp4` `.mov` `.avi` `.mkv` 等（自动抽音轨）
+- 环境变量：`~/.hermes/.env` 中配置 `SILICONFLOW_API_KEY=sk-...`
+
+**没有素材时先提醒用户**，不要直接生成。
+
+---
+
+## 🚀 一键流程
+
+### 基础用法
 
 ```bash
 uv run --with av --with requests python3 scripts/run_pipeline.py \
     --input meeting.m4a \
-    --meeting-type "产品评审会" \
-    --duration-estimate 60
+    --meeting-type "产品评审会"
 ```
 
-自动完成：
-1. 抽音轨（无需，本就是音频）
-2. 长音频自动切片（默认 10 分钟/段）
-3. 串行转录（带 1.5s 间隔防限流）
-4. 生成 3 个 Prompt 文件（修正/说话人画像/纪要）
-
-**用户复制粘贴 Prompt 到对话** → 我（LLM）当场输出最终纪要。
-
-### 场景 B：拿到的是视频文件
-
-本 skill 不直接处理视频，需先抽音轨：
+### 面试专用
 
 ```bash
-# 一行搞定：抽 16kHz mono WAV（ASR 最佳格式）
-ffmpeg -i meeting.mp4 -vn -ac 1 -ar 16000 -c:a pcm_s16le meeting.wav
-
-# 如果想保留 m4a 格式（更小）
-ffmpeg -i meeting.mp4 -vn -ac 1 -ar 16000 -c:a aac meeting.m4a
+uv run --with av --with requests python3 scripts/run_pipeline.py \
+    --input interview.mp3 \
+    --meeting-type "技术面试" \
+    --template interview \
+    --title "张三 - 后端工程师二面"
 ```
 
-参数说明：
-- `-vn` 不要视频流
-- `-ac 1` 单声道
-- `-ar 16000` 16kHz 采样率（SiliconFlow SenseVoice 最佳）
-- `-c:a pcm_s16le` / `aac` 输出格式
+### 周会
 
-抽完音轨后按场景 A 处理。
+```bash
+uv run --with av --with requests python3 scripts/run_pipeline.py \
+    --input weekly.mp3 \
+    --meeting-type "周会" \
+    --template weekly
+```
+
+### 跳过归一化（音频质量好时）
+
+```bash
+uv run --with av --with requests python3 scripts/run_pipeline.py \
+    --input meeting.wav \
+    --no-normalize
+```
 
 ---
 
-## 📋 流程详解
+## 📋 完整工作流
 
-### Step 1: 识别输入 & 选择路径
-
-| 文件类型 | 工具 |
-|---------|------|
-| 音频 → 转录 | `meeting_transcribe_batch.py` / `run_pipeline.py` |
-| AI纪要 → 解析 | `read_meeting_notes()` in SKILL.md（兼容） |
-| PDF简历 → OCR | 兼容 v1.0 流程 |
-| 文字记录 → 直接用 | 无需处理 |
-| **视频** | ❌ **不支持**，需先抽音轨 |
-
-### Step 2: 音频转录
-
-**唯一 ASR 后端：SiliconFlow + SenseVoiceSmall（免费）**
-
-> 💰 **价格提示**：`FunAudioLLM/SenseVoiceSmall` 在硅基流动平台**完全免费**调用，无时长/次数限制。仅需一个 `SILICONFLOW_API_KEY` 即可。
-
-SiliconFlow 当前只提供 `FunAudioLLM/SenseVoiceSmall` 一个 ASR 模型，能力如下：
-
-| 语种 | 支持质量 | 备注 |
-|------|----------|------|
-| 中文普通话 | ⭐⭐⭐⭐⭐ | 主语言 |
-| 粤语 | ⭐⭐⭐⭐⭐ | |
-| 英语 | ⭐⭐⭐⭐⭐ | |
-| 日语 | ⭐⭐⭐⭐⭐ | |
-| 韩语 | ⭐⭐⭐⭐⭐ | |
-| 四川话/上海话/天津话/闽南语 | ⭐⭐⭐⭐ | 中文方言 |
-| 欧洲语种/中东/非洲 | ❌ 不支持 | 不在本 skill 范围 |
-
-#### 使用示例
-
-```bash
-# 默认（SenseVoiceSmall）
-python3 meeting_transcribe_batch.py --input meeting.m4a
-
-# 一键 runner
-python3 run_pipeline.py --input meeting.m4a \
-    --meeting-type "产品评审"
+```
+Step 1: 归一化 ──→ Step 2: VAD切片 ──→ Step 3: ASR转录 ──→ Step 4: Agent自动摘要
+  (EBU R128)      (静音检测)        (SiliconFlow)       (当前LLM模型)
 ```
 
-#### 环境变量
+### Step 1: 音频预处理
 
-在 `~/.hermes/.env` 中配置：
+`normalize_audio.py` 自动完成：
+- EBU R128 响度归一化（目标 -16 LUFS）
+- 输出 16kHz mono WAV（ASR 最佳格式）
+- 如果 ffmpeg 不可用，fallback 到 peak normalization
+
+### Step 2: VAD 切片
+
+`vad_chunk.py` 基于 RMS 能量检测静音：
+- 静音阈值：-40dB（可调）
+- 最短静音：1.5s
+- 最大片段：900s（15 分钟）
+- 边界重叠：0.5s（避免截断单词）
+- **自动过滤开头/结尾3秒内的静音段**（防止前导静音导致切片失败）
+- 静音检测失败时 fallback 到固定时间切片
+
+
+
+### Step 3: ASR 转录
+
+SiliconFlow `SenseVoiceSmall`（免费）：
+- 中文普通话/粤语/方言、英日韩
+- 每段间隔 1.5s 防限流
+- 支持 Paraformer-V2（带说话人分段）
+
+### Step 4: Agent 自动摘要
+
+**这是 v2.0 的核心改进**——Agent 读取转录数据后，使用当前会话的 LLM 模型自动生成纪要：
+
+1. Agent 读取 `transcript.json`
+2. 按模板生成修正后的文本 + 说话人画像 + 最终纪要
+3. 无需用户手动复制粘贴 Prompt
+4. 支持四种模板（interview/weekly/product_review/generic）
+
+---
+
+## 📝 模板选择
+
+| 模板 | 用途 | 特色 |
+|------|------|------|
+| `interview` | 面试评估 | 技术能力/软技能评分、录用建议、后续步骤 |
+| `weekly` | 周会/站会 | 本周进展、阻塞问题、下周计划、风险跟踪 |
+| `product_review` | 产品评审 | 方案评估、技术可行性、资源排期、决策记录 |
+| `generic` | 通用会议 | 议题概览、详细讨论、决策事项、行动项 |
+
+---
+
+## 💾 会议历史
+
+自动保存到 `~/.hermes/data/meeting_minutes.db`：
 
 ```bash
-SILICONFLOW_API_KEY=sk-...
-```
+# 查看历史
+python3 scripts/meeting_store.py list --limit 10
 
-### Step 3: LLM 修正（手工触发）
+# 按类型筛选
+python3 scripts/meeting_store.py list --type "面试"
 
-**3 个 Prompt 顺序使用**：
+# 搜索
+python3 scripts/meeting_store.py search --query "Kubernetes"
 
-1. **`1_fix_transcript.md`**：错别字、口语化、中英术语（已通用化，支持任何 SenseVoice 支持的语言）
-2. **`2_identify_speakers.md`**：说话人角色画像（S1→项目经理等，含多语言观察）
-3. **`3_generate_minutes.md`**：生成最终双语 Markdown 纪要（字段名中英 + 内容原文+中文翻译）
-
-**为什么不自动调用 LLM？** 节省外部 API 成本，且 LLM 的上下文能力强、对中英混合最友好。
-
-### Step 4: 输出 Markdown 纪要
-
-参考 `templates/meeting_minutes.md`，结构：
-
-```markdown
-# 会议纪要 / Meeting Minutes：XXX
-- 时间/时长/形式/参会人/类型
-
-## 一、议题概览 / Overview
-## 二、详细讨论 / Detailed Discussion
-## 三、决策事项 / Decisions
-## 四、行动项 / Action Items
-## 五、风险与阻碍 / Risks & Blockers
-## 六、下次会议 / Next Meeting
-## 附录：原始转录
+# 统计
+python3 scripts/meeting_store.py stats
 ```
 
 ---
@@ -161,47 +159,65 @@ SILICONFLOW_API_KEY=sk-...
 
 ```
 scripts/
-├── extract_audio.py               # 抽音轨（PyAV，16k mono WAV）
-├── transcribe_single.py           # 单文件 SenseVoice（≤10min）
-├── meeting_transcribe_batch.py    # 批量转录（长会议）
-└── run_pipeline.py                # 全流程 runner（一键）
+├── run_pipeline.py              # 一键全流程 runner
+├── vad_chunk.py                 # VAD 静音检测切片
+├── normalize_audio.py           # EBU R128 响度归一化
+├── meeting_transcribe_batch.py  # 批量转录（长会议）
+├── transcribe_single.py         # 单文件转录
+├── extract_audio.py             # 音轨抽取
+└── meeting_store.py             # SQLite 会议历史
+
+prompts/
+├── fix_transcript.txt           # 转录修正
+├── identify_speakers.txt        # 说话人画像
+├── generate_minutes.txt         # 通用纪要
+├── template_interview.txt       # 面试专用
+├── template_weekly.txt          # 周会专用
+└── template_product_review.txt  # 产品评审专用
 ```
 
 ---
 
 ## 📊 性能参考
 
-> 💰 **费用**：转录阶段使用 SiliconFlow SenseVoiceSmall（**免费**），仅 LLM 修正/纪要阶段有 API 成本（本 skill 让用户复制粘贴到对话由 LLM 处理）。
-
-| 会议时长 | 切片数 | 转录耗时 | 修正+纪要 | 合计 |
+| 会议时长 | 切片数 | 转录耗时 | 摘要(自动) | 合计 |
 |---------|--------|---------|-----------|------|
-| 5 分钟 | 1 | 30s | 1 min | **2 min** |
-| 30 分钟 | 3 | 1.5 min | 3 min | **5 min** |
-| 1 小时 | 6 | 3 min | 5 min | **10 min** |
-| 2 小时 | 12 | 6 min | 8 min | **16 min** |
+| 5 分钟 | 1-2 | 30s | 1 min | **2 min** |
+| 30 分钟 | 3-5 | 1.5 min | 3 min | **5 min** |
+| 1 小时 | 5-8 | 3 min | 5 min | **10 min** |
+| 2 小时 | 8-12 | 6 min | 8 min | **16 min** |
 
 ---
 
+## ⚙️ 配置
+
+在 `~/.hermes/.env` 中：
+
+```bash
+SILICONFLOW_API_KEY=sk-...
+```
+
+可选：LLM 摘要 API（如需独立于当前会话的 LLM）：
+
+```bash
+# OpenAI 兼容 API（可选，当前会话模型优先）
+LLM_API_KEY=sk-...
+LLM_API_BASE=https://api.openai.com/v1
+LLM_MODEL=gpt-4o-mini
+```
+
 ---
 
-## 多语言支持范围
+## ⚠️ Pitfalls
 
-| 语言家族 | 代表语种 | 支持 | ASR模型 |
-|----------|----------|------|---------|
-| **中文** | 普通话/粤语/上海话/四川话/天津话/闽南语 | ✅ | SenseVoiceSmall |
-| **东亚** | 日语/韩语 | ✅ | SenseVoiceSmall |
-| **欧洲/中东/非洲** | 英法德西俄意葡/阿拉伯波斯/斯瓦希里等 | ❌ | 不在本 skill 范围 |
-
-> ℹ️ 如果未来需要欧洲/中东/非洲语种，可考虑：① 接 OpenAI Whisper API；② 本地跑 faster-whisper；③ 等待 SiliconFlow 上线新模型。
-
----
-
-## 注意事项
-
-1. **API Key 安全**：从 `<USER_HOME>/.hermes/.env` 读取，不硬编码
-2. **限流防护**：每段间隔 1.5s 串行调用，避免 429
-3. **格式要求**：先抽 16k mono WAV，再上传（兼容性最好）
-4. **大文件**：单文件 >100MB 需先压缩或用 OSS 代理
-5. **多说话人**：会议中英文人名建议加简历/参会人名单辅助识别
-6. **隐私**：本地处理为主，只有音轨上传到 SiliconFlow
-7. **多语言**：仅支持 SenseVoice 原生语种（中/英/日/韩 + 中文方言），其他语种不支持
+1. **Python 3.9 type annotations**：macOS 系统自带 Python 3.9.6，**不支持** `str | None` 语法（需要 3.10+）。scripts/ 下的 Python 文件必须用 `from typing import Optional` + `Optional[str]` 代替。写完后 `python3 -c "import ast; ast.parse(open('script.py').read())"` 快速验证语法。
+2. **ffmpeg 路径**：macOS Homebrew 装在 `/opt/homebrew/bin/ffmpeg`，非 Homebrew 装在 `/usr/local/bin/ffmpeg`。脚本中用 `shutil.which()` + 硬编码 fallback 双重检测。
+3. **VAD 边缘静音陷阱**：`vad_chunk.py` 在检测到的静音段中心点切片时，必须先过滤掉音频开头/结尾3秒内的静音段（`filter_edge_silences`）。否则前导静音会产生极小的第一个 chunk，后续 chunk 的 overlap 区域与其重叠，导致 merge 逻辑把所有 chunk 合并成一个。这是最常见的 VAD 切片 bug。
+3. **API Key 安全**：从 `~/.hermes/.env` 读取，不硬编码
+4. **限流防护**：每段间隔 1.5s 串行调用，避免 429
+5. **格式要求**：自动处理格式，无需手动转换
+6. **大文件**：单文件 >100MB 需先压缩或用 OSS 代理
+7. **多说话人**：会议中英文人名建议加简历/参会人名单辅助识别
+8. **隐私**：本地处理为主，只有音轨上传到 SiliconFlow
+9. **多语言**：支持中/英/日/韩 + 中文方言
+10. **Skill 文档自包含**：不在 SKILL.md 或 prompts 中引用外部项目 URL/名称（如 meetily 等竞品），保持 skill 独立可读

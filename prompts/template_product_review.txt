@@ -1,0 +1,112 @@
+你是一名资深产品经理/技术负责人，请根据以下产品评审会录音转录文本，生成结构化的评审纪要。
+
+## 会议信息
+
+- **会议类型**：{{MEETING_TYPE}}
+- **时长**：约 {{DURATION}} 分钟
+- **主语言**：{{LANGUAGE}}
+- **日期**：{{DATE}}
+
+## 输出格式（Markdown）
+
+```markdown
+# 产品评审纪要 / Product Review Minutes
+
+- **日期 / Date**：{{DATE}}
+- **时长 / Duration**：约 {{DURATION}} 分钟
+- **评审人 / Reviewers**：{{SPEAKERS}}
+- **主语言 / Language**：{{LANGUAGE}}
+
+---
+
+## 一、评审概览 / Review Overview
+
+（简要总结评审的产品/功能、当前阶段、评审结论）
+
+## 二、产品方案评估 / Product Assessment
+
+### 2.1 需求分析 / Requirements
+
+| 需求项 / Requirement | 优先级 / Priority | 状态 / Status | 备注 / Notes |
+|---------------------|------------------|-------------|-------------|
+| | P0/P1/P2 | 通过/待改/驳回 | |
+
+### 2.2 用户体验 / UX Review
+
+（交互设计、用户体验方面的讨论和结论）
+
+### 2.3 数据指标 / Metrics
+
+（讨论到的数据指标、目标、基线等）
+
+## 三、技术可行性 / Technical Feasibility
+
+| 评估维度 / Dimension | 结论 / Conclusion | 风险 / Risk | 负责人 / Owner |
+|---------------------|------------------|-----------|---------------|
+| 架构设计 / Architecture | | | |
+| 性能影响 / Performance | | | |
+| 安全合规 / Security | | | |
+| 兼容性 / Compatibility | | | |
+
+## 四、资源与排期 / Resources & Timeline
+
+### 资源需求 / Resource Needs
+
+| 角色 / Role | 人数 / Headcount | 工时(人天) / Effort | 备注 / Notes |
+|------------|----------------|-------------------|-------------|
+| 前端 / Frontend | | | |
+| 后端 / Backend | | | |
+| 设计 / Design | | | |
+| 测试 / QA | | | |
+
+### 里程碑 / Milestones
+
+| 里程碑 / Milestone | 目标日期 / Target | 负责人 / Owner | 状态 / Status |
+|-------------------|-----------------|---------------|-------------|
+| PRD 定稿 | | | |
+| 技术方案 | | | |
+| 开发完成 | | | |
+| 测试完成 | | | |
+| 上线 | | | |
+
+## 五、决策记录 / Decision Log
+
+| # | 决策 / Decision | 提出者 / Proposed By | 投票结果 / Vote | 生效时间 / Effective |
+|---|----------------|---------------------|----------------|---------------------|
+| 1 | | | 通过/否决/待定 | |
+
+## 六、遗留问题 / Open Questions
+
+| # | 问题 / Question | 负责人 / Owner | 预计解决时间 / ETA |
+|---|----------------|---------------|-------------------|
+| 1 | | | |
+
+## 七、下次评审 / Next Review
+
+- **时间 / Time**：
+- **议题 / Topics**：
+
+## 附录：原始转录 / Raw Transcript
+
+<details>
+<summary>点击展开 / Click to expand</summary>
+
+{{TRANSCRIPT}}
+
+</details>
+```
+
+## 处理规则
+
+1. **决策**：所有"决定""approved""rejected""通过""驳回""go/no-go"必须提取
+2. **排期**：所有日期、版本号、deadline 必须保留原文
+3. **技术风险**：所有"risk""风险""可能出问题""technical debt"必须提取
+4. **数据**：所有指标、数字、百分比必须保留
+5. 评审结论必须明确：通过 / 有条件通过 / 驳回 / 待定
+6. 只输出纪要，不要其他解释
+
+## 输入文本
+
+```
+{{TRANSCRIPT}}
+```

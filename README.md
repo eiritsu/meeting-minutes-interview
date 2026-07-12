@@ -16,201 +16,125 @@ English | [简体中文](README.zh-CN.md)
 
 | | |
 |---|---|
-| 🎙️ **Long-audio transcription** | Auto-slices audio >10 min and transcribes serially with rate-limit guard |
+| 🔊 **Audio normalization** | EBU R128 loudness normalization (-16 LUFS) for consistent ASR quality |
+| 🎯 **VAD chunking** | Splits audio at natural speech pauses instead of fixed time intervals |
+| 🎙️ **Long-audio transcription** | Auto-slices audio and transcribes serially with rate-limit guard |
 | 🗣️ **Speaker diarization** | Detects and labels multiple speakers across the meeting |
-| ✍️ **LLM refinement** | 3-step prompt pipeline: fix ASR errors → identify speakers → generate minutes |
-| 🌏 **Multilingual** | Mandarin, Cantonese, English, Japanese, Korean + Chinese dialects (Sichuan/Shanghai/Tianjin/Min) |
-| 🌐 **Bilingual output** | Minutes produced in mixed Chinese/English (original + translation) |
-| 💰 **Free ASR** | Uses SiliconFlow `SenseVoiceSmall` — no duration or call-count limits |
-
----
-
-## 📋 Supported Formats
-
-| Type | Formats |
-|------|---------|
-| Audio ✅ | `.mp3` `.m4a` `.wav` `.flac` `.ogg` `.opus` `.aac` `.amr` |
-| Video ❌ | Not supported directly — extract audio first (see below) |
-
----
-
-## 🧰 Prerequisites
-
-- Python 3.10+
-- [uv](https://github.com/astral-sh/uv) (Python package manager)
-- `ffmpeg` — only needed for video → audio extraction
-- SiliconFlow API key — [free signup](https://siliconflow.cn), key placed in `~/.hermes/.env`
-- (Optional) A self-hosted or alternative **OpenAI-compatible ASR endpoint** — see [🔌 Configuration](#-configuration) below
-
----
+| 🌐 **Multilingual** | Mandarin, Cantonese, English, Japanese, Korean + Chinese dialects |
+| 📝 **Meeting templates** | Interview / Weekly / Product Review / Generic templates |
+| 🤖 **Auto LLM summary** | Agent uses current model to generate minutes — no manual copy-paste |
+| 💾 **Meeting history** | SQLite storage with search and statistics |
+| 🎬 **Video support** | Auto-extracts audio track from video files |
+| 💰 **100% free ASR** | SiliconFlow SenseVoiceSmall — no usage limits |
 
 ## 🚀 Quick Start
 
-### 1. Configure your API key
+### Prerequisites
 
-Add to `~/.hermes/.env`:
+- Python 3.10+
+- [uv](https://github.com/astral-sh/uv) (Python package manager)
+- ffmpeg (for audio normalization and video extraction)
+- SiliconFlow API key — [free signup](https://siliconflow.cn), store in `~/.hermes/.env`:
+  ```
+  SILICONFLOW_API_KEY=sk-...
+  ```
 
-```
-SILICONFLOW_API_KEY=sk-xxx...your-key
-```
-
-### 2. Run the pipeline
+### Run
 
 ```bash
+# Install dependencies
+uv pip install av requests
+
+# Basic usage
 uv run --with av --with requests python3 scripts/run_pipeline.py \
     --input meeting.m4a \
-    --meeting-type "Product Review" \
-    --duration-estimate 60
+    --meeting-type "Product Review"
+
+# Interview with template
+uv run --with av --with requests python3 scripts/run_pipeline.py \
+    --input interview.mp3 \
+    --meeting-type "Technical Interview" \
+    --template interview \
+    --title "Zhang San - Backend Engineer Round 2"
 ```
 
-This automatically:
-1. Extracts audio (skipped if input is already audio)
-2. Slices long audio into 10-minute chunks
-3. Transcribes serially with 1.5s delay (rate-limit guard)
-4. Generates 3 prompt files for LLM refinement
+### Available templates
 
-### 3. Refine with the LLM
+| Template | Use case |
+|---|---|
+| `interview` | Technical/HR interviews — candidate assessment, scoring, hire recommendation |
+| `weekly` | Weekly standups — progress, blockers, next week plan, risk tracking |
+| `product_review` | Product reviews — feasibility, resources, timeline, decision log |
+| `generic` | General meetings — topics, decisions, action items, risks |
 
-Copy the generated prompts in order into your LLM chat:
-
-1. `1_fix_transcript.md` — fix ASR errors, formalize spoken language, keep technical terms
-2. `2_identify_speakers.md` — identify speaker roles (S1 → Project Manager, etc.)
-3. `3_generate_minutes.md` — generate the final bilingual Markdown minutes
-
-> The LLM steps are manual (copy-paste) to keep API costs transparent and let you steer quality.
-
----
-
-## 🔌 Configuration
-
-The skill ships configured for SiliconFlow by default. Both the **API key** (environment variable) and the **API URL** (hardcoded, change in source) are easy to override.
-
-### 1. API Key — via environment variable
-
-The key is read from `~/.hermes/.env` in your `SILICONFLOW_API_KEY` line. To use a different key (e.g. a self-hosted gateway with its own key), edit that line — no code change required:
-
-```bash
-# Edit ~/.hermes/.env
-SILICONFLOW_API_KEY=sk-xxx...your-key
-```
-
-> If you don't use Hermes Agent, point the key-loading code line directly in `scripts/transcribe_single.py:16` and `scripts/meeting_transcribe_batch.py:43` (the file-search code) to wherever you store your secret.
-
-### 2. API URL — edit two lines in source
-
-The ASR endpoint is **hardcoded** in two places. To point at a different host (e.g. a self-hosted `faster-whisper` server, or a regional SiliconFlow mirror):
-
-| File | Line | Default | Change to |
-|---|---|---|---|
-| `scripts/transcribe_single.py`       | **L29** | `https://api.siliconflow.cn/v1/audio/transcriptions` | your endpoint |
-| `scripts/meeting_transcribe_batch.py`| **L110** | `https://api.siliconflow.cn/v1/audio/transcriptions` | your endpoint |
-
-Any **OpenAI-compatible** `/v1/audio/transcriptions` endpoint works (the request/response format follows the OpenAI Whisper API spec).
-
-Example — switch to a local `faster-whisper` server:
-
-```python
-# scripts/transcribe_single.py, around L29
-url = "http://localhost:8000/v1/audio/transcriptions"
-```
-
-Then run the pipeline as usual. The auth header (`Authorization: Bearer <key>`) is sent automatically; your local server can choose to ignore it or use it for its own auth.
-
-> 🤝 **Contributions welcome** — if you'd like `SILICONFLOW_BASE_URL` as a proper environment variable, please open a PR. The two-line change is trivial.
-
----
-
-## 🎥 Video Files
-
-The skill doesn't process video directly. Extract the audio first:
-
-```bash
-# 16kHz mono WAV (best for SenseVoice)
-ffmpeg -i meeting.mp4 -vn -ac 1 -ar 16000 -c:a pcm_s16le meeting.wav
-
-# Or keep as m4a (smaller)
-ffmpeg -i meeting.mp4 -vn -ac 1 -ar 16000 -c:a aac meeting.m4a
-```
-
-Then run the pipeline on the extracted audio.
-
----
-
-## 📁 Repository Layout
+## 📋 Pipeline
 
 ```
-meeting-minutes-interview/
-├── SKILL.md                            # Skill definition (consumed by Hermes Agent)
-├── README.md                           # English (this file)
-├── README.zh-CN.md                     # 简体中文
-├── LICENSE                             # MIT
-├── scripts/
-│   ├── extract_audio.py                # Audio extraction (PyAV, 16k mono WAV)
-│   ├── transcribe_single.py            # Single-file SenseVoice (≤10 min)
-│   ├── meeting_transcribe_batch.py     # Batch transcription (long meetings)
-│   └── run_pipeline.py                 # One-shot runner
-├── prompts/
-│   ├── fix_transcript.txt              # Step 1: fix ASR text
-│   ├── identify_speakers.txt           # Step 2: speaker profiling
-│   ├── merge_speakers.txt              # Cross-chunk speaker merge
-│   └── generate_minutes.txt            # Step 3: bilingual minutes
-└── templates/
-    └── meeting_minutes.md              # Final output template
+Audio Input
+  ↓
+1. Normalize (EBU R128, -16 LUFS)
+  ↓
+2. VAD Chunk (split at natural pauses)
+  ↓
+3. Transcribe (SiliconFlow SenseVoiceSmall, free)
+  ↓
+4. LLM Auto-Summary (current session model)
+  ↓
+5. Store (SQLite history)
 ```
 
----
+## 📁 Project Structure
 
-## 📊 Performance Reference
+```
+scripts/
+├── run_pipeline.py              # One-shot pipeline runner
+├── vad_chunk.py                 # VAD silence-based chunker
+├── normalize_audio.py           # EBU R128 normalization
+├── meeting_store.py             # SQLite storage
+├── extract_audio.py             # Audio track extraction
+├── transcribe_single.py         # Single file transcription
+└── meeting_transcribe_batch.py  # Batch transcription
 
-> Cost: ASR is free (SiliconFlow SenseVoiceSmall). Only the LLM refinement step uses your chat model.
+prompts/
+├── fix_transcript.txt           # ASR error correction
+├── identify_speakers.txt        # Speaker role identification
+├── generate_minutes.txt         # Generic meeting minutes
+├── template_interview.txt       # Interview-specific
+├── template_weekly.txt          # Weekly standup
+└── template_product_review.txt  # Product review
+```
 
-| Meeting Length | Chunks | Transcription | Refine + Minutes | Total |
+## 📊 Performance
+
+| Duration | Chunks | Transcription | Summary | Total |
 |---|---|---|---|---|
-| 5 min   | 1  | 30 s    | 1 min  | **2 min**  |
-| 30 min  | 3  | 1.5 min | 3 min  | **5 min**  |
-| 1 hour  | 6  | 3 min   | 5 min  | **10 min** |
-| 2 hours | 12 | 6 min   | 8 min  | **16 min** |
+| 5 min | 1-2 | 30s | 1 min | **2 min** |
+| 30 min | 3-5 | 1.5 min | 3 min | **5 min** |
+| 1 hour | 5-8 | 3 min | 5 min | **10 min** |
+| 2 hours | 8-12 | 6 min | 8 min | **16 min** |
 
----
-
-## 📥 Install in Hermes Agent
+## 🛠️ Advanced Options
 
 ```bash
-hermes skills install github:eiritsu/meeting-minutes-interview
+# Skip normalization (good quality audio)
+--no-normalize
+
+# Skip VAD, use fixed-time chunking
+--no-vad --chunk-seconds 300
+
+# Specify transcription model
+--model Paraformer-V2
+
+# Skip SQLite storage
+--no-store
 ```
 
-Or place the folder at `~/.hermes/skills/meeting-minutes-interview/` and restart Hermes.
+## 🔒 Privacy
 
----
-
-## 🌍 Language Coverage
-
-| Family | Languages | ASR Model |
-|---|---|---|
-| **Chinese** | Mandarin, Cantonese, Sichuan/Shanghai/Tianjin/Min | SenseVoiceSmall |
-| **East Asian** | Japanese, Korean | SenseVoiceSmall |
-| **European / Middle Eastern / African** | ❌ Not supported in this skill | — |
-
-> For other languages, integrate OpenAI Whisper API or local `faster-whisper` separately.
-
----
-
-## ⚠️ Notes
-
-1. **API key safety** — read from `~/.hermes/.env`, never hardcoded
-2. **Rate limit guard** — 1.5s delay between chunks to avoid 429
-3. **Format recommendation** — convert to 16k mono WAV before upload (most compatible)
-4. **Large files** — files >100 MB should be compressed or proxied via OSS
-5. **Speaker names** — supplying a participant list / CV greatly improves speaker identification
-6. **Privacy** — processing is local; only the audio itself is uploaded to SiliconFlow for ASR
-7. **Multilingual scope** — limited to SenseVoice's native languages (zh/en/ja/ko + Chinese dialects)
-
----
+- Only audio is uploaded to SiliconFlow for ASR
+- All other processing is local
+- Meeting history stored in `~/.hermes/data/meeting_minutes.db`
 
 ## 📄 License
 
 [MIT](LICENSE) — Copyright (c) 2024 Y
-
----
-
-Built with ❤️ by [Y](https://github.com/eiritsu)
